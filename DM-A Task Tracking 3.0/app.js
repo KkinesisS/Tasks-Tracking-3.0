@@ -910,7 +910,8 @@ function createTaskCard(task) {
             </span>
             <span class="badge-priority ${prioClass}">${task.priorityLevel}</span>
         </div>
-        <div class="card-desc">${task.taskDescription}</div>
+        <div class="card-topic" style="font-weight: 700; font-size: 0.92rem; margin-top: 0.5rem; margin-bottom: 0.15rem; color: var(--text-primary); font-family: var(--font-heading);">${task.topic || 'No Topic'}</div>
+        <div class="card-desc" style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; max-height: 3.4em;">${task.taskDescription}</div>
         
         <div class="card-metadata">
             <div class="meta-item" title="Requestor">
@@ -978,7 +979,7 @@ function createTaskCard(task) {
         <div class="quick-update-box" style="margin-top: 0.75rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem; display: flex; gap: 0.35rem; align-items: center;" onclick="event.stopPropagation();" ondragstart="event.stopPropagation();">
             <input type="text" placeholder="Type status update..." onkeydown="if(event.key==='Enter'){event.preventDefault(); addQuickUpdate('${task.id}', this);}" style="flex-grow: 1; font-size: 0.75rem; padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); outline: none; font-family: var(--font-body); box-sizing: border-box;" />
             <input type="file" id="quickUpdateFile_${task.id}" style="display: none;" onchange="uploadQuickUpdateFile('${task.id}', this)" />
-            <label for="quickUpdateFile_${task.id}" class="btn btn-secondary" style="padding: 0.35rem 0.5rem; font-size: 0.75rem; border-radius: 6px; margin: 0; min-height: auto; width: auto; height: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;" title="Attach File" onclick="document.getElementById('quickUpdateFile_${task.id}').click();">
+            <label for="quickUpdateFile_${task.id}" class="btn btn-secondary" style="padding: 0.35rem 0.5rem; font-size: 0.75rem; border-radius: 6px; margin: 0; min-height: auto; width: auto; height: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;" title="Attach File">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
                 </svg>
@@ -1039,7 +1040,7 @@ function renderList(filteredTasks) {
                 <td><span class="tbl-type">${task.aircraftType || 'A320'}</span></td>
                 <td><span class="tbl-ata">${task.ataChapter || 'N/A'}</span></td>
                 <td><span class="badge-priority ${prioClass}">${task.priorityLevel}</span></td>
-                <td><div class="tbl-desc" title="${task.taskDescription}">${task.taskDescription}</div></td>
+                <td><div class="tbl-desc" title="${task.taskDescription}"><strong>${task.topic || 'No Topic'}</strong><br><span style="font-size: 0.78rem; color: var(--text-muted);">${task.taskDescription}</span></div></td>
                 <td><span>${task.createdDate || 'N/A'}</span></td>
                 <td><span>${task.rtsDate}</span></td>
                 <td><span>${task.requestor}</span></td>
@@ -1507,7 +1508,7 @@ function setupEventListeners() {
             const assignedTeam = task.assignedTeam || '';
             const dateStr = task.createdDate || new Date().toISOString().split('T')[0];
             const aircraftReg = task.aircraftReg || 'N-A';
-            const topic = task.taskDescription || 'General';
+            const topic = task.topic || task.taskDescription || 'General';
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -1638,6 +1639,8 @@ function setupEventListeners() {
             const folderUrl = document.getElementById('customFolderUrl').value.trim();
             const powerAutomateInput = document.getElementById('powerAutomateUrl');
             const powerAutomateUrl = powerAutomateInput ? powerAutomateInput.value.trim() : '';
+            const powerAutomateDeleteInput = document.getElementById('powerAutomateDeleteUrl');
+            const powerAutomateDeleteUrl = powerAutomateDeleteInput ? powerAutomateDeleteInput.value.trim() : '';
             
             // Check if user entered a OneDrive or SharePoint URL in the Google Drive input
             if (folderUrl && (folderUrl.toLowerCase().includes('onedrive.live.com') || folderUrl.toLowerCase().includes('sharepoint.com') || folderUrl.toLowerCase().includes('onedrive') || folderUrl.toLowerCase().includes('sharepoint'))) {
@@ -1647,6 +1650,7 @@ function setupEventListeners() {
             
             // Save Power Automate URL
             localStorage.setItem('mro_power_automate_url', powerAutomateUrl);
+            localStorage.setItem('mro_power_automate_delete_url', powerAutomateDeleteUrl);
 
             // Save Supabase credentials
             const supabaseUrlVal = document.getElementById('supabaseUrl')?.value.trim() || '';
@@ -1817,6 +1821,7 @@ function openEditTaskModal(id) {
     `;
 
     document.getElementById('taskId').value = task.id;
+    document.getElementById('taskTopic').value = task.topic || '';
     document.getElementById('aircraftReg').value = task.aircraftReg;
     document.getElementById('aircraftType').value = task.aircraftType || '';
     document.getElementById('ataChapter').value = task.ataChapter || '';
@@ -1921,6 +1926,9 @@ function openDetailsModal(id) {
     const priority = task.priorityLevel || 'Medium';
     prioBadge.className = `badge-priority ${priority.toLowerCase()}`;
     prioBadge.textContent = priority;
+
+    // Topic
+    document.getElementById('detailTopic').textContent = task.topic || 'No Topic';
 
     // Description
     document.getElementById('detailDesc').textContent = task.taskDescription || '';
@@ -2250,9 +2258,10 @@ function handleFormSubmit(e) {
     const priorityLevel = document.getElementById('priorityLevel').value;
     const currentStatus = document.getElementById('currentStatus').value;
     const taskDescription = document.getElementById('taskDescription').value.trim();
+    const topic = document.getElementById('taskTopic').value.trim() || 'General';
 
     // Validations
-    if (!aircraftReg || !aircraftType || !ataChapter || !rtsDate || !assignedTeam || !requestor || !requestorContact || !taskDescription) {
+    if (!aircraftReg || !aircraftType || !ataChapter || !rtsDate || !assignedTeam || !requestor || !requestorContact || !taskDescription || !topic) {
         alert('Please fill out all required fields.');
         return;
     }
@@ -2262,8 +2271,26 @@ function handleFormSubmit(e) {
         // Edit Mode
         const taskIndex = tasks.findIndex(t => t.id === id);
         if (taskIndex !== -1) {
+            const originalAttachments = tasks[taskIndex].attachments || [];
+            const newAttachmentUrls = new Set(formAttachments.map(fa => fa.data));
+            
+            originalAttachments.forEach(att => {
+                if (!newAttachmentUrls.has(att.data)) {
+                    if (att.type !== 'url' && att.data && !att.data.startsWith('data:')) {
+                        requestDeleteOneDriveFile(
+                            att.name,
+                            tasks[taskIndex].assignedTeam || '',
+                            tasks[taskIndex].createdDate || '',
+                            tasks[taskIndex].aircraftReg || 'N-A',
+                            tasks[taskIndex].topic || tasks[taskIndex].taskDescription || 'General'
+                        );
+                    }
+                }
+            });
+
             tasks[taskIndex] = {
                 ...tasks[taskIndex],
+                topic,
                 aircraftReg,
                 aircraftType,
                 ataChapter,
@@ -2282,6 +2309,7 @@ function handleFormSubmit(e) {
         // Create Mode
         const newTask = {
             id: 'task-' + Date.now(),
+            topic,
             aircraftReg,
             aircraftType,
             ataChapter,
@@ -2306,7 +2334,11 @@ function handleFormSubmit(e) {
 
 // Delete task from details modal
 function confirmDeleteTask(id) {
+    const taskToDelete = tasks.find(t => t.id === id);
     if (confirm('Are you sure you want to permanently delete this MRO task?')) {
+        if (taskToDelete) {
+            deleteOneDriveFilesForTask(taskToDelete);
+        }
         tasks = tasks.filter(t => t.id !== id);
         deleteTaskData(id);
         closeModal('detailsModal');
@@ -2316,7 +2348,11 @@ function confirmDeleteTask(id) {
 
 // Delete task directly from list view
 function deleteTaskDirect(id) {
+    const taskToDelete = tasks.find(t => t.id === id);
     if (confirm('Are you sure you want to permanently delete this task?')) {
+        if (taskToDelete) {
+            deleteOneDriveFilesForTask(taskToDelete);
+        }
         tasks = tasks.filter(t => t.id !== id);
         deleteTaskData(id);
         renderApp();
@@ -2451,8 +2487,8 @@ function processFiles(fileList) {
     
     let aircraftRegInput = document.getElementById('aircraftReg');
     let aircraftReg = aircraftRegInput ? aircraftRegInput.value.trim().toUpperCase() || 'N-A' : 'N-A';
-    let taskDescriptionInput = document.getElementById('taskDescription');
-    let topic = taskDescriptionInput ? taskDescriptionInput.value.trim() || 'General' : 'General';
+    let taskTopicInput = document.getElementById('taskTopic');
+    let topic = taskTopicInput ? taskTopicInput.value.trim() || 'General' : 'General';
     
     if (taskId) {
         const existingTask = tasks.find(t => t.id === taskId);
@@ -2466,8 +2502,10 @@ function processFiles(fileList) {
             if (existingTask.aircraftReg && (aircraftReg === '' || aircraftReg === 'N-A')) {
                 aircraftReg = existingTask.aircraftReg;
             }
-            if (existingTask.taskDescription && (topic === '' || topic === 'General')) {
-                topic = existingTask.taskDescription;
+            if (existingTask.topic || existingTask.taskDescription) {
+                if (topic === '' || topic === 'General') {
+                    topic = existingTask.topic || existingTask.taskDescription;
+                }
             }
         }
     }
@@ -3780,7 +3818,7 @@ function renderWeeklySummaryTab() {
                 <td><span>${t.rtsDate}</span></td>
                 <td><span class="badge-priority ${prioClass}">${t.priorityLevel}</span></td>
                 <td><span class="badge-status ${statusClass}">${t.currentStatus}</span></td>
-                <td><div class="tbl-desc" title="${t.taskDescription}">${t.taskDescription}</div></td>
+                <td><div class="tbl-desc" title="${t.taskDescription}"><strong>${t.topic || 'No Topic'}</strong><br><span style="font-size: 0.78rem; color: var(--text-muted);">${t.taskDescription}</span></div></td>
                 <td>${updatesHtml}</td>
             `;
             rtsTableBody.appendChild(row);
@@ -3999,6 +4037,16 @@ function saveFYIItem() {
 
 function deleteFYIItem(id) {
     if (confirm('Are you sure you want to permanently delete this information log?')) {
+        const itemToDelete = fyiItems.find(item => item.id === id);
+        if (itemToDelete && itemToDelete.attachmentUrl && !itemToDelete.attachmentUrl.startsWith('data:')) {
+            requestDeleteOneDriveFile(
+                itemToDelete.attachmentName,
+                itemToDelete.team || 'FYI',
+                itemToDelete.dateCreated || '',
+                'N-A',
+                itemToDelete.title || 'FYI Bulletin'
+            );
+        }
         fyiItems = fyiItems.filter(item => item.id !== id);
         localStorage.setItem('mro_fyi_items', JSON.stringify(fyiItems));
         
@@ -4156,7 +4204,13 @@ function uploadMaterialFile(fileInput) {
     
     const reader = new FileReader();
     reader.onload = function(e) {
-        handleCloudOrLocalUpload(file, e.target.result, (url) => {
+        const dotIndex = file.name.lastIndexOf('.');
+        const extension = dotIndex !== -1 ? file.name.substring(dotIndex) : '';
+        const renamedFile = {
+            name: 'Material Catalog' + extension,
+            type: file.type
+        };
+        handleCloudOrLocalUpload(renamedFile, e.target.result, (url) => {
             document.getElementById('sapSourceFile').value = url;
             alert(`File "${file.name}" uploaded successfully!`);
         }, () => {
@@ -4420,6 +4474,64 @@ function getFrontendWeekFolderName(dateString) {
     return 'Week ' + formattedWeek + ' (' + year + ')';
 }
 
+function requestDeleteOneDriveFile(fileName, teamName, dateStr, aircraftReg, topic) {
+    const isGas = typeof google !== 'undefined' && google.script && google.script.run && !google.script.isMock;
+    if (isGas) {
+        return;
+    }
+    const powerAutomateDeleteUrl = localStorage.getItem('mro_power_automate_delete_url');
+    if (!powerAutomateDeleteUrl || !powerAutomateDeleteUrl.trim()) return;
+
+    let teamNameSanitized = 'General';
+    if (teamName && teamName.trim()) {
+        teamNameSanitized = teamName.trim();
+    }
+
+    fetch(powerAutomateDeleteUrl.trim(), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            fileName: fileName,
+            team: teamNameSanitized,
+            date: (dateStr === 'skip' ? '' : (dateStr || '')),
+            aircraftReg: aircraftReg || 'N-A',
+            topic: topic || 'General'
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            console.error('Failed to trigger file deletion in Power Automate:', response.statusText);
+        }
+    })
+    .catch(err => {
+        console.error('Error triggering file deletion in Power Automate:', err);
+    });
+}
+
+function deleteOneDriveFilesForTask(task) {
+    if (!task || !task.attachments || task.attachments.length === 0) return;
+    
+    const powerAutomateDeleteUrl = localStorage.getItem('mro_power_automate_delete_url');
+    if (!powerAutomateDeleteUrl || !powerAutomateDeleteUrl.trim()) return;
+    
+    task.attachments.forEach(attachment => {
+        if (attachment.type !== 'url' && attachment.data && !attachment.data.startsWith('data:')) {
+            requestDeleteOneDriveFile(
+                attachment.name,
+                task.assignedTeam || '',
+                task.createdDate || '',
+                task.aircraftReg || 'N-A',
+                task.topic || task.taskDescription || 'General'
+            );
+        }
+    });
+}
+
+window.requestDeleteOneDriveFile = requestDeleteOneDriveFile;
+window.deleteOneDriveFilesForTask = deleteOneDriveFilesForTask;
+
 function handleCloudOrLocalUpload(file, base64Data, successCallback, localFallbackCallback, teamName, dateStr, aircraftReg, topic) {
     const isGas = typeof google !== 'undefined' && google.script && google.script.run && !google.script.isMock;
     if (isGas) {
@@ -4472,7 +4584,7 @@ function handleCloudOrLocalUpload(file, base64Data, successCallback, localFallba
                     mimeType: file.type,
                     base64Data: pureBase64,
                     team: teamNameSanitized,
-                    date: dateStr || '',
+                    date: (dateStr === 'skip' ? '' : (dateStr || '')),
                     weekFolder: weekFolder,
                     aircraftReg: aircraftReg || 'N-A',
                     topic: topic || 'General'
@@ -4589,6 +4701,10 @@ function handleSettingsBtnClick() {
     const localPowerAutomateUrl = localStorage.getItem('mro_power_automate_url') || '';
     const powerAutomateInput = document.getElementById('powerAutomateUrl');
     if (powerAutomateInput) powerAutomateInput.value = localPowerAutomateUrl;
+
+    const localPowerAutomateDeleteUrl = localStorage.getItem('mro_power_automate_delete_url') || '';
+    const powerAutomateDeleteInput = document.getElementById('powerAutomateDeleteUrl');
+    if (powerAutomateDeleteInput) powerAutomateDeleteInput.value = localPowerAutomateDeleteUrl;
 
     const localSupabaseUrl = localStorage.getItem('mro_supabase_url') || '';
     const localSupabaseAnonKey = localStorage.getItem('mro_supabase_anon_key') || '';

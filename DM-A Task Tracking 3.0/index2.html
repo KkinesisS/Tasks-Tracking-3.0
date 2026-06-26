@@ -923,7 +923,7 @@
                             <div style="display: flex; gap: 0.35rem; align-items: center;">
                                 <input type="text" id="sapSourceFile" required placeholder="e.g. https://drive.google.com/ or local file link..." style="flex-grow: 1; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem; outline: none; font-family: var(--font-body); box-sizing: border-box;" />
                                 <input type="file" id="materialFileAttachment" style="display: none;" onchange="uploadMaterialFile(this)" />
-                                <label for="materialFileAttachment" class="btn btn-secondary" style="padding: 0.5rem; font-size: 0.85rem; border-radius: 6px; margin: 0; min-height: auto; width: auto; height: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;" title="Upload File" onclick="document.getElementById('materialFileAttachment').click();">
+                                <label for="materialFileAttachment" class="btn btn-secondary" style="padding: 0.5rem; font-size: 0.85rem; border-radius: 6px; margin: 0; min-height: auto; width: auto; height: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;" title="Upload File">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
                                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
                                     </svg>
@@ -1008,7 +1008,7 @@
                                 <input type="text" id="fyiAttachmentUrl" placeholder="Paste link or click paperclip to upload..." style="flex-grow: 1; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem; outline: none; font-family: var(--font-body); box-sizing: border-box;" />
                                 <input type="hidden" id="fyiAttachmentName" />
                                 <input type="file" id="fyiFileAttachment" style="display: none;" onchange="uploadFyiFile(this)" />
-                                <label for="fyiFileAttachment" class="btn btn-secondary" style="padding: 0.5rem; font-size: 0.85rem; border-radius: 6px; margin: 0; min-height: auto; width: auto; height: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;" title="Upload File" onclick="document.getElementById('fyiFileAttachment').click();">
+                                <label for="fyiFileAttachment" class="btn btn-secondary" style="padding: 0.5rem; font-size: 0.85rem; border-radius: 6px; margin: 0; min-height: auto; width: auto; height: auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;" title="Upload File">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
                                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
                                     </svg>
@@ -1149,6 +1149,12 @@
                             </select>
                         </div>
 
+                        <!-- Topic -->
+                        <div class="form-group full-width">
+                            <label for="taskTopic">Topic *</label>
+                            <input type="text" id="taskTopic" required placeholder="e.g., Engine Change, Cabin WiFi Installation, Left Engine Troubleshooting" style="width: 100%; box-sizing: border-box; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem; outline: none; font-family: var(--font-body);">
+                        </div>
+
                         <!-- Task Description -->
                         <div class="form-group full-width">
                             <label for="taskDescription">Task Description *</label>
@@ -1222,6 +1228,11 @@
                                 <span id="detailAtaChapter" class="ata-badge">ATA -</span>
                             </div>
                             <span id="detailPriority" class="badge-priority">AOG</span>
+                        </div>
+
+                        <!-- Topic -->
+                        <div class="detail-section" style="margin-top: 0.75rem; margin-bottom: 0.75rem;">
+                            <h3 id="detailTopic" style="font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0;"></h3>
                         </div>
 
                         <!-- Description -->
@@ -1460,6 +1471,11 @@
                         <label for="powerAutomateUrl" style="font-weight: 600;">Microsoft OneDrive Power Automate Webhook URL</label>
                         <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.25rem 0 0.5rem 0;">Paste the HTTP POST URL generated by your Power Automate Flow (with an HTTP Request trigger) to upload files directly to OneDrive when hosted outside of Google Apps Script.</p>
                         <input type="url" id="powerAutomateUrl" placeholder="https://prod-XX.southeastasia.logic.azure.com:443/workflows/..." style="width: 100%; box-sizing: border-box; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem; outline: none; font-family: var(--font-body);">
+                    </div>
+                    <div class="form-group full-width" style="margin-top: 1.25rem;">
+                        <label for="powerAutomateDeleteUrl" style="font-weight: 600;">Microsoft OneDrive Power Automate DELETE Webhook URL</label>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.25rem 0 0.5rem 0;">Paste the HTTP POST URL generated by your Power Automate Flow to delete files from OneDrive when a task or attachment is deleted.</p>
+                        <input type="url" id="powerAutomateDeleteUrl" placeholder="https://prod-XX.southeastasia.logic.azure.com:443/workflows/... (DELETE flow)" style="width: 100%; box-sizing: border-box; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem; outline: none; font-family: var(--font-body);">
                     </div>
                     <div class="form-group full-width" style="margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
                         <label for="supabaseUrl" style="font-weight: 600;">Supabase URL</label>
