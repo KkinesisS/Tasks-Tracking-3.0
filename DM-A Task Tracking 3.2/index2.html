@@ -682,7 +682,7 @@
                             <div class="form-group">
                                 <label>Assigned Team *</label>
                                 <div class="multiselect-container" id="manualTeamContainer">
-                                    <button type="button" class="multiselect-trigger" id="manualTeamTrigger" aria-haspopup="listbox" aria-expanded="false">
+                                    <button type="button" class="multiselect-trigger" id="manualTeamTrigger" onclick="window.toggleMultiselectApp('manualTeamDropdown', this); event.stopPropagation();" aria-haspopup="listbox" aria-expanded="false">
                                         <span class="multiselect-text" id="manualTeamText">Select team...</span>
                                         <svg class="multiselect-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                     </button>
@@ -833,7 +833,7 @@
                             <div style="display: flex; align-items: center; gap: 0.35rem;">
                                 <label style="font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">Team:</label>
                                 <div class="multiselect-container" id="summaryTeamContainer" style="width: auto; min-width: 150px; margin: 0; box-sizing: border-box; display: inline-block; vertical-align: middle;">
-                                    <button type="button" class="multiselect-trigger" id="summaryTeamTrigger" aria-haspopup="listbox" aria-expanded="false" style="padding: 0 1.75rem 0 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); outline: none; font-size: 0.9rem; font-family: var(--font-body); width: 100%; height: 34px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; box-sizing: border-box;">
+                                    <button type="button" class="multiselect-trigger" id="summaryTeamTrigger" onclick="window.toggleMultiselectApp('summaryTeamDropdown', this); event.stopPropagation();" aria-haspopup="listbox" aria-expanded="false" style="padding: 0 1.75rem 0 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); outline: none; font-size: 0.9rem; font-family: var(--font-body); width: 100%; height: 34px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; box-sizing: border-box;">
                                         <span class="multiselect-text" id="summaryTeamText">All Teams</span>
                                         <svg class="multiselect-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; margin-left: 4px; flex-shrink: 0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                     </button>
@@ -1091,7 +1091,6 @@
                                 <th>RTS Date</th>
                                 <th>Priority</th>
                                 <th>Status</th>
-                                <th>Description</th>
                                 <th class="no-print">Status Updates & Log</th>
                             </tr>
                         </thead>
@@ -1391,7 +1390,7 @@
                         <div class="form-group">
                             <label>Assigned Team *</label>
                             <div class="multiselect-container" id="assignedTeamContainer">
-                                <button type="button" class="multiselect-trigger" id="assignedTeamTrigger" aria-haspopup="listbox" aria-expanded="false">
+                                <button type="button" class="multiselect-trigger" id="assignedTeamTrigger" onclick="window.toggleMultiselectApp('assignedTeamDropdown', this); event.stopPropagation();" aria-haspopup="listbox" aria-expanded="false">
                                     <span class="multiselect-text" id="assignedTeamText">Select assigned team...</span>
                                     <svg class="multiselect-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                 </button>

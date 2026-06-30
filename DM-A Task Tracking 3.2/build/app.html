@@ -1,4 +1,4 @@
-<script>
+﻿<script>
 // MRO Maintenance Task Tracker Logic
 
 // State Management
@@ -757,12 +757,9 @@ function renderApp() {
         }
     }
 
-    // Refresh calendar tab if it's currently active/visible
-    const calendarTab = document.getElementById('calendarTab');
-    if (calendarTab && !calendarTab.classList.contains('hidden')) {
-        if (typeof renderCalendarTab === 'function') {
-            renderCalendarTab();
-        }
+    // Refresh calendar tab
+    if (typeof renderCalendarTab === 'function') {
+        renderCalendarTab();
     }
 
     // Refresh notifications panel
@@ -1288,6 +1285,35 @@ function handleDragEnd() {
  * @param {string} textId      - ID of the span that shows the current selection label
  * @param {string} placeholder - Placeholder text shown when nothing is selected
  */
+window.toggleMultiselectApp = function(dropdownId, triggerEl) {
+    const dropdown = document.getElementById(dropdownId);
+    if (!dropdown || !triggerEl) return;
+    
+    const isOpen = dropdown.classList.contains('open');
+    
+    // Close all other open dropdowns first
+    document.querySelectorAll('.multiselect-dropdown.open').forEach(d => {
+        if (d.id !== dropdownId) {
+            d.classList.remove('open');
+            const otherTrigger = document.getElementById(d.id.replace('Dropdown', 'Trigger'));
+            if (otherTrigger) {
+                otherTrigger.classList.remove('active');
+                otherTrigger.setAttribute('aria-expanded', 'false');
+            }
+        }
+    });
+    
+    if (isOpen) {
+        dropdown.classList.remove('open');
+        triggerEl.classList.remove('active');
+        triggerEl.setAttribute('aria-expanded', 'false');
+    } else {
+        dropdown.classList.add('open');
+        triggerEl.classList.add('active');
+        triggerEl.setAttribute('aria-expanded', 'true');
+    }
+};
+
 function setupMultiselect(triggerId, dropdownId, hiddenId, textId, placeholder) {
     const trigger = document.getElementById(triggerId);
     const dropdown = document.getElementById(dropdownId);
@@ -1317,17 +1343,7 @@ function setupMultiselect(triggerId, dropdownId, hiddenId, textId, placeholder) 
     // Toggle dropdown open/close on trigger click
     trigger.addEventListener('click', (e) => {
         e.stopPropagation();
-        const isOpen = dropdown.classList.contains('open');
-        // Close all other open dropdowns first
-        document.querySelectorAll('.multiselect-dropdown.open').forEach(d => {
-            d.classList.remove('open');
-            d.previousElementSibling && d.previousElementSibling.classList.remove('active');
-        });
-        if (!isOpen) {
-            dropdown.classList.add('open');
-            trigger.classList.add('active');
-            trigger.setAttribute('aria-expanded', 'true');
-        }
+        window.toggleMultiselectApp(dropdownId, trigger);
     });
 
     // Update hidden input + label when a checkbox is toggled
@@ -1375,15 +1391,17 @@ function setAssignedTeams(dropdownId, hiddenId, textId, placeholder, valueStr) {
 }
 
 // Close all multiselect dropdowns when clicking outside
-window.addEventListener('click', () => {
-    document.querySelectorAll('.multiselect-dropdown.open').forEach(d => {
-        d.classList.remove('open');
-        const trigger = document.getElementById(d.id.replace('Dropdown', 'Trigger'));
-        if (trigger) {
-            trigger.classList.remove('active');
-            trigger.setAttribute('aria-expanded', 'false');
-        }
-    });
+window.addEventListener('click', (e) => {
+    if (!e.target.closest('.multiselect-container')) {
+        document.querySelectorAll('.multiselect-dropdown.open').forEach(d => {
+            d.classList.remove('open');
+            const trigger = document.getElementById(d.id.replace('Dropdown', 'Trigger'));
+            if (trigger) {
+                trigger.classList.remove('active');
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
 });
 
 function setupEventListeners() {
@@ -4351,17 +4369,15 @@ function renderWeeklySummaryTab() {
             else if (teamLower.includes('iera')) teamClass = 'team-iera';
             else if (teamLower.includes('component')) teamClass = 'team-component';
             
-            row.className = `task-row prio-${prioClass} status-${statusClass} ${teamClass}${hasLog ? ' has-log' : ''}`;
+            row.className = `task-row prio-${prioClass} status-${statusClass} ${teamClass} has-log`;
             
             // Format status updates & logs as bullet list for dropdown
             const rowId = `wk-log-${t.id}`;
 
-            const toggleBtn = updates.length > 0
-                ? `<button onclick="event.stopPropagation(); toggleWeeklyLogRow('${rowId}', this)" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:4px;font-size:0.75rem;font-weight:600;transition:color 0.2s;" title="Toggle status log">
-                    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' style='width:12px;height:12px;transition:transform 0.2s;'><polyline points='6 9 12 15 18 9'></polyline></svg>
-                    ${updates.length}
-                  </button>`
-                : `<span style="color:var(--border-color);font-size:0.75rem;display:flex;align-items:center;justify-content:center;" title="No updates">—</span>`;
+            const toggleBtn = `<button onclick="event.stopPropagation(); toggleWeeklyLogRow('${rowId}', this)" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:4px;font-size:0.75rem;font-weight:600;transition:color 0.2s;" title="Toggle details">
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' style='width:12px;height:12px;transition:transform 0.2s;'><polyline points='6 9 12 15 18 9'></polyline></svg>
+                ${updates.length}
+              </button>`;
 
             row.innerHTML = `
                 <td><span class="tbl-reg">${t.aircraftReg}</span></td>
@@ -4371,85 +4387,103 @@ function renderWeeklySummaryTab() {
                 <td><span>${t.rtsDate}</span></td>
                 <td><span class="badge-priority ${prioClass}">${t.priorityLevel}</span></td>
                 <td><span class="badge-status ${statusClass}">${t.currentStatus}</span></td>
-                <td><div class="tbl-desc" title="${t.taskDescription}"><strong>${t.topic || 'No Topic'}</strong><br><span style="font-size: 0.78rem; color: var(--text-muted);">${t.taskDescription}</span></div></td>
                 <td class="no-print" style="text-align:center;vertical-align:middle;">${toggleBtn}</td>
             `;
             rtsTableBody.appendChild(row);
 
-            // Print-only log row (hidden on screen, visible when printing)
+            // Collapsible details & log row (hidden on screen by default, visible when printing or expanded)
+            const sortedUpdates = [...updates].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const logRow = document.createElement('tr');
+            logRow.id = rowId;
+            logRow.className = `wk-print-log-row status-${statusClass} ${teamClass}`;
+            
+            let updatesHtml = '';
             if (updates.length > 0) {
-                // Sort ascending: oldest first
-                const sortedUpdates = [...updates].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                const logRow = document.createElement('tr');
-                logRow.id = rowId;
-                logRow.className = `wk-print-log-row status-${statusClass} ${teamClass}`;
-                logRow.innerHTML = `
-                    <td colspan="8" style="padding:0;border-top:none;">
-                        <div style="padding:1rem 1.5rem 1.25rem 1.5rem;background:var(--bg-card);border-bottom:1px solid var(--border-color);">
-                            <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:0.75rem;">Status Updates &amp; Log (${updates.length})</div>
-                            <div class="dhl-timeline">
-                                ${sortedUpdates.map((u, i) => {
-                                    let monthDay = '';
-                                    let yearVal = '';
-                                    let timeStr = '';
-                                    try {
-                                        const d = new Date(u.timestamp);
-                                        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                                        const day = String(d.getDate()).padStart(2,'0');
-                                        const mon = months[d.getMonth()];
-                                        yearVal = d.getFullYear();
-                                        monthDay = `${mon} ${day},`;
-                                        
-                                        let hours = d.getHours();
-                                        const minutes = String(d.getMinutes()).padStart(2,'0');
-                                        const ampm = hours >= 12 ? 'PM' : 'AM';
-                                        hours = hours % 12;
-                                        hours = hours ? hours : 12;
-                                        timeStr = `${hours}:${minutes} ${ampm}`;
-                                    } catch(e) {
-                                        monthDay = 'Date';
-                                        yearVal = 'N/A';
-                                        timeStr = u.timestamp;
-                                    }
-                                    
-                                    // Show date only if it's different from the previous one in the list (newest first)
-                                    let showDate = true;
-                                    if (i > 0) {
-                                        try {
-                                            const prevD = new Date(sortedUpdates[i - 1].timestamp);
-                                            const currD = new Date(u.timestamp);
-                                            showDate = prevD.toDateString() !== currD.toDateString();
-                                        } catch(e) {}
-                                    }
-                                    
-                                    const dateHtml = showDate 
-                                        ? `<span class="dhl-date-month">${monthDay}</span>
-                                           <span class="dhl-date-year">${yearVal}</span>`
-                                        : '';
-                                    
-                                    return `
-                                        <div class="dhl-timeline-item">
-                                            <div class="dhl-timeline-date">
-                                                ${dateHtml}
-                                            </div>
-                                            <div class="dhl-timeline-node-container">
-                                                <div class="dhl-timeline-badge">
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="dhl-checkmark">
-                                                        <polyline points="20 6 9 17 4 12"></polyline>
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                            <div class="dhl-timeline-content">
-                                                <div class="dhl-status-title">${escapeHTMLApp(u.text)}</div>
-                                                <div class="dhl-status-subtext">${timeStr} &middot; ${escapeHTMLApp(u.author)}</div>
-                                            </div>
-                                        </div>`;
-                                }).join('')}
+                updatesHtml = `
+                    <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:0.75rem;">Status Updates &amp; Log (${updates.length})</div>
+                    <div class="dhl-timeline">
+                        ${sortedUpdates.map((u, i) => {
+                            let monthDay = '';
+                            let yearVal = '';
+                            let timeStr = '';
+                            try {
+                                const d = new Date(u.timestamp);
+                                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                                const day = String(d.getDate()).padStart(2,'0');
+                                const mon = months[d.getMonth()];
+                                yearVal = d.getFullYear();
+                                monthDay = `${mon} ${day},`;
+                                
+                                let hours = d.getHours();
+                                const minutes = String(d.getMinutes()).padStart(2,'0');
+                                const ampm = hours >= 12 ? 'PM' : 'AM';
+                                hours = hours % 12;
+                                hours = hours ? hours : 12;
+                                timeStr = `${hours}:${minutes} ${ampm}`;
+                            } catch(e) {
+                                monthDay = 'Date';
+                                yearVal = 'N/A';
+                                timeStr = u.timestamp;
+                            }
+                            
+                            // Show date only if it's different from the previous one in the list (newest first)
+                            let showDate = true;
+                            if (i > 0) {
+                                try {
+                                    const prevD = new Date(sortedUpdates[i - 1].timestamp);
+                                    const currD = new Date(u.timestamp);
+                                    showDate = prevD.toDateString() !== currD.toDateString();
+                                } catch(e) {}
+                            }
+                            
+                            const dateHtml = showDate 
+                                ? `<span class="dhl-date-month">${monthDay}</span>
+                                   <span class="dhl-date-year">${yearVal}</span>`
+                                : '';
+                            
+                            return `
+                                <div class="dhl-timeline-item">
+                                    <div class="dhl-timeline-date">
+                                        ${dateHtml}
+                                    </div>
+                                    <div class="dhl-timeline-node-container">
+                                        <div class="dhl-timeline-badge">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="dhl-checkmark">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <div class="dhl-timeline-content">
+                                        <div class="dhl-status-title">${escapeHTMLApp(u.text)}</div>
+                                        <div class="dhl-status-subtext">${timeStr} &middot; ${escapeHTMLApp(u.author)}</div>
+                                    </div>
+                                </div>`;
+                        }).join('')}
+                    </div>
+                `;
+            } else {
+                updatesHtml = `
+                    <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:0.5rem;">Status Updates &amp; Log (0)</div>
+                    <div style="font-size:0.85rem;color:var(--text-muted);font-style:italic;">No status updates have been recorded for this task.</div>
+                `;
+            }
+
+            logRow.innerHTML = `
+                <td colspan="8" style="padding:0;border-top:none;">
+                    <div style="padding:1.25rem 1.5rem;background:var(--bg-card);border-bottom:1px solid var(--border-color);">
+                        <!-- Description Section -->
+                        <div style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border-color);">
+                            <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:0.5rem;">Description</div>
+                            <div style="font-size:0.88rem;color:var(--text-primary);line-height:1.45;">
+                                <strong style="font-size:0.95rem;color:var(--text-primary);">${escapeHTMLApp(t.topic || 'No Topic')}</strong>
+                                <div style="margin-top:0.35rem;white-space:pre-wrap;color:var(--text-secondary);">${escapeHTMLApp(t.taskDescription || '')}</div>
                             </div>
                         </div>
-                    </td>`;
-                rtsTableBody.appendChild(logRow);
-            }
+                        <!-- Status Updates Section -->
+                        ${updatesHtml}
+                    </div>
+                </td>`;
+            rtsTableBody.appendChild(logRow);
         });
     }
 }
@@ -5238,6 +5272,7 @@ function requestDeleteOneDriveFile(fileName, teamName, dateStr, aircraftReg, top
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+            deleteLevel: 'file',
             fileName: fileName,
             team: teamNameSanitized,
             date: (dateStr === 'skip' ? '' : (dateStr || '')),
@@ -5782,110 +5817,135 @@ let currentCalendarDate = new Date();
 let selectedCalendarTeam = 'All Teams';
 
 function renderCalendarTab() {
-    const monthLabel = document.getElementById('calMonthYearLabel');
-    const daysGrid = document.getElementById('calendarDaysGrid');
-    if (!monthLabel || !daysGrid) return;
+    try {
+        const monthLabel = document.getElementById('calMonthYearLabel');
+        const daysGrid = document.getElementById('calendarDaysGrid');
+        if (!monthLabel || !daysGrid) return;
 
-    const year = currentCalendarDate.getFullYear();
-    const month = currentCalendarDate.getMonth(); // 0-11
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth(); // 0-11
 
-    const monthNames = [
-        "January", "February", "March", "April", "May", "June", 
-        "July", "August", "September", "October", "November", "December"
-    ];
-    monthLabel.textContent = `${monthNames[month]} ${year}`;
+        const monthNames = [
+            "January", "February", "March", "April", "May", "June", 
+            "July", "August", "September", "October", "November", "December"
+        ];
+        monthLabel.textContent = `${monthNames[month]} ${year}`;
 
-    // Get calendar days array
-    const firstDay = new Date(year, month, 1);
-    const startDayOfWeek = firstDay.getDay(); // 0 (Sun) to 6 (Sat)
-    const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
-    const totalDaysInPrevMonth = new Date(year, month, 0).getDate();
+        // Get calendar days array
+        const firstDay = new Date(year, month, 1);
+        const startDayOfWeek = firstDay.getDay(); // 0 (Sun) to 6 (Sat)
+        const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+        const totalDaysInPrevMonth = new Date(year, month, 0).getDate();
 
-    let gridHtml = '';
+        let gridHtml = '';
 
-    const pad = (num) => String(num).padStart(2, '0');
+        const pad = (num) => String(num).padStart(2, '0');
 
-    // 1. Previous Month padding days
-    for (let i = startDayOfWeek - 1; i >= 0; i--) {
-        const prevDay = totalDaysInPrevMonth - i;
-        const prevMonth = month === 0 ? 11 : month - 1;
-        const prevYear = month === 0 ? year - 1 : year;
-        const dateStr = `${prevYear}-${pad(prevMonth + 1)}-${pad(prevDay)}`;
-        gridHtml += renderCalendarCell(prevDay, prevMonth, prevYear, dateStr, true);
+        // 1. Previous Month padding days
+        for (let i = startDayOfWeek - 1; i >= 0; i--) {
+            const prevDay = totalDaysInPrevMonth - i;
+            const prevMonth = month === 0 ? 11 : month - 1;
+            const prevYear = month === 0 ? year - 1 : year;
+            const dateStr = `${prevYear}-${pad(prevMonth + 1)}-${pad(prevDay)}`;
+            gridHtml += renderCalendarCell(prevDay, prevMonth, prevYear, dateStr, true);
+        }
+
+        // 2. Current Month days
+        for (let day = 1; day <= totalDaysInMonth; day++) {
+            const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+            gridHtml += renderCalendarCell(day, month, year, dateStr, false);
+        }
+
+        // 3. Next Month padding days (to fill 42 cells total)
+        const totalRendered = startDayOfWeek + totalDaysInMonth;
+        const nextPadding = 42 - totalRendered;
+        for (let day = 1; day <= nextPadding; day++) {
+            const nextMonth = month === 11 ? 0 : month + 1;
+            const nextYear = month === 11 ? year + 1 : year;
+            const dateStr = `${nextYear}-${pad(nextMonth + 1)}-${pad(day)}`;
+            gridHtml += renderCalendarCell(day, nextMonth, nextYear, dateStr, true);
+        }
+
+        daysGrid.innerHTML = gridHtml;
+    } catch (e) {
+        console.error("Error rendering calendar tab:", e);
     }
-
-    // 2. Current Month days
-    for (let day = 1; day <= totalDaysInMonth; day++) {
-        const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
-        gridHtml += renderCalendarCell(day, month, year, dateStr, false);
-    }
-
-    // 3. Next Month padding days (to fill 42 cells total)
-    const totalRendered = startDayOfWeek + totalDaysInMonth;
-    const nextPadding = 42 - totalRendered;
-    for (let day = 1; day <= nextPadding; day++) {
-        const nextMonth = month === 11 ? 0 : month + 1;
-        const nextYear = month === 11 ? year + 1 : year;
-        const dateStr = `${nextYear}-${pad(nextMonth + 1)}-${pad(day)}`;
-        gridHtml += renderCalendarCell(day, nextMonth, nextYear, dateStr, true);
-    }
-
-    daysGrid.innerHTML = gridHtml;
 }
 
 function renderCalendarCell(day, month, year, dateStr, isOtherMonth) {
-    const today = new Date();
-    const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+    try {
+        const today = new Date();
+        const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
 
-    // Filter tasks scheduled for this RTS date
-    const cellTasks = tasks.filter(t => {
-        if (!t.rtsDate) return false;
-        const taskDate = t.rtsDate.split('T')[0];
-        const matchesDate = taskDate === dateStr;
-        if (!matchesDate) return false;
+        // Filter tasks scheduled for this RTS date
+        const cellTasks = (tasks || []).filter(t => {
+            if (!t || !t.rtsDate) return false;
+            
+            let rtsDateStr = '';
+            if (t.rtsDate instanceof Date) {
+                rtsDateStr = t.rtsDate.toISOString();
+            } else if (typeof t.rtsDate === 'string') {
+                rtsDateStr = t.rtsDate;
+            } else {
+                rtsDateStr = String(t.rtsDate);
+            }
+            
+            const taskDate = rtsDateStr.split('T')[0];
+            const matchesDate = taskDate === dateStr;
+            if (!matchesDate) return false;
 
-        if (selectedCalendarTeam === 'All Teams') return true;
-        const taskTeams = (t.assignedTeam || '').split(',').map(s => s.trim());
-        return taskTeams.includes(selectedCalendarTeam);
-    });
+            if (selectedCalendarTeam === 'All Teams') return true;
+            const taskTeams = (t.assignedTeam || '').split(',').map(s => s.trim());
+            return taskTeams.includes(selectedCalendarTeam);
+        });
 
-    let tasksHtml = '';
-    const maxVisibleTasks = 2; // Keep it clean
-    const visibleTasks = cellTasks.slice(0, maxVisibleTasks);
+        let tasksHtml = '';
+        const maxVisibleTasks = 2; // Keep it clean
+        const visibleTasks = cellTasks.slice(0, maxVisibleTasks);
 
-    visibleTasks.forEach(task => {
-        let teamClass = 'comp-team'; // default
-        const firstTeam = (task.assignedTeam || '').split(',')[0].trim();
-        if (firstTeam === 'Mechanical System Team') teamClass = 'mech-team';
-        else if (firstTeam === 'Avionic Systems Team') teamClass = 'av-team';
-        else if (firstTeam === 'Structure Team') teamClass = 'struct-team';
-        else if (firstTeam === 'Engines Team') teamClass = 'eng-team';
-        else if (firstTeam === 'IERA Shop') teamClass = 'iera-team';
+        visibleTasks.forEach(task => {
+            if (!task) return;
+            let teamClass = 'comp-team'; // default
+            const firstTeam = (task.assignedTeam || '').split(',')[0].trim();
+            if (firstTeam === 'Mechanical System Team') teamClass = 'mech-team';
+            else if (firstTeam === 'Avionic Systems Team') teamClass = 'av-team';
+            else if (firstTeam === 'Structure Team') teamClass = 'struct-team';
+            else if (firstTeam === 'Engines Team') teamClass = 'eng-team';
+            else if (firstTeam === 'IERA Shop') teamClass = 'iera-team';
 
-        const priorityText = task.priorityLevel === 'AOG' ? '⚠️ ' : '';
-        const statusText = task.currentStatus === 'Completed' ? '✅ ' : '';
-        tasksHtml += `
-            <div class="calendar-task-badge ${teamClass}" 
-                 onclick="event.stopPropagation(); openDetailsModal('${task.id}');"
-                 title="${task.aircraftReg} - ${task.taskDescription} (${task.currentStatus})">
-                ${statusText}${priorityText}${task.aircraftReg || 'N/A'}
+            const priorityText = task.priorityLevel === 'AOG' ? '⚠️ ' : '';
+            const statusText = task.currentStatus === 'Completed' ? '✅ ' : '';
+            tasksHtml += `
+                <div class="calendar-task-badge ${teamClass}" 
+                     onclick="event.stopPropagation(); openDetailsModal('${task.id}');"
+                     title="${escapeHTMLApp(task.aircraftReg || 'N/A')} - ${escapeHTMLApp(task.taskDescription || '')} (${escapeHTMLApp(task.currentStatus || 'Open')})">
+                    ${statusText}${priorityText}${escapeHTMLApp(task.aircraftReg || 'N/A')}
+                </div>
+            `;
+        });
+
+        if (cellTasks.length > maxVisibleTasks) {
+            tasksHtml += `<div class="calendar-more-indicator">+${cellTasks.length - maxVisibleTasks} more</div>`;
+        }
+
+        return `
+            <div class="calendar-cell ${isOtherMonth ? 'other-month' : ''} ${isToday ? 'today' : ''}" 
+                 onclick="handleCalendarCellClick('${dateStr}')">
+                <span class="calendar-date-number">${day}</span>
+                <div class="calendar-tasks-list">
+                    ${tasksHtml}
+                </div>
             </div>
         `;
-    });
-
-    if (cellTasks.length > maxVisibleTasks) {
-        tasksHtml += `<div class="calendar-more-indicator">+${cellTasks.length - maxVisibleTasks} more</div>`;
-    }
-
-    return `
-        <div class="calendar-cell ${isOtherMonth ? 'other-month' : ''} ${isToday ? 'today' : ''}" 
-             onclick="handleCalendarCellClick('${dateStr}')">
-            <span class="calendar-date-number">${day}</span>
-            <div class="calendar-tasks-list">
-                ${tasksHtml}
+    } catch (e) {
+        console.error("Error rendering calendar cell:", e);
+        return `
+            <div class="calendar-cell ${isOtherMonth ? 'other-month' : ''}" 
+                 onclick="handleCalendarCellClick('${dateStr}')">
+                <span class="calendar-date-number">${day}</span>
             </div>
-        </div>
-    `;
+        `;
+    }
 }
 
 function handleCalendarCellClick(dateStr) {
