@@ -47,6 +47,11 @@ function initTabs() {
       if (target === 'history' && typeof renderHistoryTab === 'function') {
         renderHistoryTab();
       }
+
+      // If we switched to the External Requests tab, render pending requests
+      if (target === 'requests' && typeof renderRequestsTab === 'function') {
+        renderRequestsTab();
+      }
     });
   });
 }

@@ -85,7 +85,7 @@ html.dark-mode .card-desc {
 }
 
 /* Form Controls & Inputs */
-html.dark-mode input,
+html.dark-mode input:not([type="checkbox"]):not([type="radio"]),
 html.dark-mode select,
 html.dark-mode textarea {
     background-color: rgba(26, 14, 29, 0.85) !important;
@@ -96,7 +96,7 @@ html.dark-mode input::placeholder,
 html.dark-mode textarea::placeholder {
     color: #935073 !important;
 }
-html.dark-mode input:focus,
+html.dark-mode input:not([type="checkbox"]):not([type="radio"]):focus,
 html.dark-mode select:focus,
 html.dark-mode textarea:focus {
     background-color: rgba(40, 22, 43, 0.95) !important;

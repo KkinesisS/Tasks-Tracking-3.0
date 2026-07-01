@@ -6,6 +6,8 @@ let tasks = [];
 let fyiItems = [];
 let activeFyiTeam = 'All Teams';
 let sapCodes = [];
+let isExternalRequest = false;
+let eventListenersSet = false;
 function initSupabase() {
     const localUrl = localStorage.getItem('mro_supabase_url');
     const localKey = localStorage.getItem('mro_supabase_anon_key');
@@ -175,6 +177,8 @@ function startApp() {
         loginLogo.src = mainLogo.src;
     }
 
+    initApp();
+    setupEventListeners();
     checkAuthentication();
     
     // Bind login form submit
@@ -580,6 +584,7 @@ function saveToLocalStorage() {
 }
 
 function saveTaskData(task) {
+    console.log('saveTaskData saving task:', task);
     saveToLocalStorage();
     const isGas = typeof google !== 'undefined' && google.script && google.script.run;
     const hasSupabase = typeof window.supabaseClient !== 'undefined' && window.supabaseClient !== null;
@@ -766,11 +771,20 @@ function renderApp() {
     renderNotifications();
 }
 
+function isExternalTask(task) {
+    if (!task) return false;
+    const isExt = task.isExternal;
+    if (isExt === true || isExt === 'true') return true;
+    if (typeof isExt === 'string' && isExt.toLowerCase() === 'true') return true;
+    return false;
+}
+
 // Calculate Stats Dashboard
 function calculateStats() {
-    const aogCount = tasks.filter(t => t.priorityLevel === 'AOG' && t.currentStatus !== 'Completed').length;
-    const activeCount = tasks.filter(t => t.currentStatus === 'In Progress').length;
-    const completedCount = tasks.filter(t => t.currentStatus === 'Completed').length;
+    const internalTasks = tasks.filter(t => !isExternalTask(t));
+    const aogCount = internalTasks.filter(t => t.priorityLevel === 'AOG' && t.currentStatus !== 'Completed').length;
+    const activeCount = internalTasks.filter(t => t.currentStatus === 'In Progress').length;
+    const completedCount = internalTasks.filter(t => t.currentStatus === 'Completed').length;
 
     document.getElementById('statAogCount').textContent = aogCount;
     document.getElementById('statActiveCount').textContent = activeCount;
@@ -778,17 +792,31 @@ function calculateStats() {
 
     // Pulse style if AOG is greater than 0
     const aogCard = document.querySelector('.stat-card.aog');
-    if (aogCount > 0) {
-        aogCard.style.boxShadow = '0 0 15px rgba(220, 38, 38, 0.25)';
-    } else {
-        aogCard.style.boxShadow = '';
+    if (aogCard) {
+        if (aogCount > 0) {
+            aogCard.style.boxShadow = '0 0 15px rgba(220, 38, 38, 0.25)';
+        } else {
+            aogCard.style.boxShadow = '';
+        }
+    }
+
+    // Update external requests pending badge count
+    const pendingCount = tasks.filter(t => isExternalTask(t)).length;
+    const badge = document.getElementById('requestsBadgeCount');
+    if (badge) {
+        if (pendingCount > 0) {
+            badge.textContent = pendingCount;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
     }
 
     // Populate Print Statistics
     const today = new Date('2026-06-17T22:01:02+07:00');
     const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
     document.getElementById('printDate').textContent = today.toLocaleDateString('en-US', options);
-    document.getElementById('printTotalTasks').textContent = tasks.length;
+    document.getElementById('printTotalTasks').textContent = internalTasks.length;
     document.getElementById('printAogTasks').textContent = aogCount;
 }
 
@@ -807,6 +835,9 @@ function getFilteredTasks() {
     return tasks.filter(task => {
         // Exclude tasks archived to History (completed > 7 days ago)
         if (isArchivedToHistory(task)) return false;
+
+        // Exclude external requests
+        if (isExternalTask(task)) return false;
 
         // Search matches
         const searchLower = activeFilters.search.toLowerCase();
@@ -1541,6 +1572,8 @@ window.addEventListener('click', (e) => {
 });
 
 function setupEventListeners() {
+    if (eventListenersSet) return;
+    eventListenersSet = true;
 
     // Search Box
     document.getElementById('searchInput').addEventListener('input', (e) => {
@@ -1706,6 +1739,88 @@ function setupEventListeners() {
         } else {
             input.disabled = false;
             input.style.opacity = '1';
+        }
+    });
+
+    // Aircraft Registration N/A Checkbox listener
+    document.getElementById('aircraftRegNa').addEventListener('change', (e) => {
+        const input = document.getElementById('aircraftReg');
+        if (e.target.checked) {
+            input.value = '';
+            input.disabled = true;
+            input.style.opacity = '0.5';
+            input.required = false;
+        } else {
+            input.disabled = false;
+            input.style.opacity = '1';
+            input.required = true;
+        }
+    });
+
+    // Aircraft Type N/A Checkbox listener
+    document.getElementById('aircraftTypeNa').addEventListener('change', (e) => {
+        const trigger = document.getElementById('aircraftTypeTrigger');
+        const container = document.getElementById('aircraftTypeContainer');
+        const hiddenInput = document.getElementById('aircraftType');
+        const textEl = document.getElementById('aircraftTypeText');
+        const dropdown = document.getElementById('aircraftTypeDropdown');
+        
+        if (e.target.checked) {
+            trigger.disabled = true;
+            container.style.opacity = '0.5';
+            hiddenInput.value = 'N/A';
+            textEl.textContent = 'N/A';
+            
+            // Uncheck checkboxes
+            dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            const othersInputContainer = dropdown.querySelector('.others-input-container');
+            const othersInput = dropdown.querySelector('.others-input');
+            if (othersInputContainer) othersInputContainer.style.display = 'none';
+            if (othersInput) othersInput.value = '';
+        } else {
+            trigger.disabled = false;
+            container.style.opacity = '1';
+            hiddenInput.value = '';
+            textEl.textContent = 'Select aircraft type...';
+        }
+    });
+
+    // ATA Chapter N/A Checkbox listener
+    document.getElementById('ataChapterNa').addEventListener('change', (e) => {
+        const input = document.getElementById('ataChapter');
+        if (e.target.checked) {
+            input.value = '';
+            input.disabled = true;
+            input.style.opacity = '0.5';
+            input.required = false;
+        } else {
+            input.disabled = false;
+            input.style.opacity = '1';
+            input.required = true;
+        }
+    });
+
+    // Assigned Team N/A Checkbox listener
+    document.getElementById('assignedTeamNa').addEventListener('change', (e) => {
+        const trigger = document.getElementById('assignedTeamTrigger');
+        const container = document.getElementById('assignedTeamContainer');
+        const hiddenInput = document.getElementById('assignedTeam');
+        const textEl = document.getElementById('assignedTeamText');
+        const dropdown = document.getElementById('assignedTeamDropdown');
+        
+        if (e.target.checked) {
+            trigger.disabled = true;
+            container.style.opacity = '0.5';
+            hiddenInput.value = 'N/A';
+            textEl.textContent = 'N/A';
+            
+            // Uncheck checkboxes in dropdown
+            dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        } else {
+            trigger.disabled = false;
+            container.style.opacity = '1';
+            hiddenInput.value = '';
+            textEl.textContent = 'Select assigned team...';
         }
     });
 
@@ -2168,11 +2283,37 @@ function closeModal(modalId) {
         formAttachments = [];
         document.getElementById('filePreviewList').innerHTML = '';
         document.getElementById('taskForm').reset();
+        
+        if (isExternalRequest) {
+            isExternalRequest = false;
+            // Restore default taskModal z-index and show login card
+            const taskModal = document.getElementById('taskModal');
+            if (taskModal) taskModal.style.zIndex = '';
+            
+            const loginCard = document.getElementById('loginCard');
+            if (loginCard) loginCard.style.display = '';
+        }
     }
+}
+
+function openExternalRequestModal() {
+    isExternalRequest = true;
+    
+    // Hide the login card box, but keep the blurred background active
+    const loginCard = document.getElementById('loginCard');
+    if (loginCard) loginCard.style.display = 'none';
+    
+    // Elevate taskModal z-index to show on top of loginOverlay (which is z-index: 99999)
+    const taskModal = document.getElementById('taskModal');
+    if (taskModal) taskModal.style.zIndex = '100000';
+    
+    openAddTaskModal();
+    openModal('taskModal');
 }
 
 // Open Add Task Modal
 function openAddTaskModal() {
+    const titleText = isExternalRequest ? 'Create Request' : 'Create Maintenance Task';
     document.getElementById('modalTitle').innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -2180,11 +2321,56 @@ function openAddTaskModal() {
             <line x1="12" y1="18" x2="12" y2="12"></line>
             <line x1="9" y1="15" x2="15" y2="15"></line>
         </svg>
-        Create Maintenance Task
+        ${titleText}
     `;
+    
+    // Hide status dropdown for external requests
+    const statusGroup = document.getElementById('currentStatus')?.closest('.form-group');
+    if (statusGroup) {
+        statusGroup.style.display = isExternalRequest ? 'none' : '';
+    }
+
     document.getElementById('taskId').value = '';
     document.getElementById('taskForm').reset();
     
+    // Reset Aircraft fields N/A states
+    const aircraftRegEl = document.getElementById('aircraftReg');
+    const aircraftRegNaEl = document.getElementById('aircraftRegNa');
+    if (aircraftRegNaEl) aircraftRegNaEl.checked = false;
+    if (aircraftRegEl) {
+        aircraftRegEl.disabled = false;
+        aircraftRegEl.style.opacity = '1';
+        aircraftRegEl.required = true;
+    }
+
+    const aircraftTypeTrigger = document.getElementById('aircraftTypeTrigger');
+    const aircraftTypeContainer = document.getElementById('aircraftTypeContainer');
+    const aircraftTypeNaEl = document.getElementById('aircraftTypeNa');
+    if (aircraftTypeNaEl) aircraftTypeNaEl.checked = false;
+    if (aircraftTypeTrigger) aircraftTypeTrigger.disabled = false;
+    if (aircraftTypeContainer) aircraftTypeContainer.style.opacity = '1';
+
+    const ataChapterEl = document.getElementById('ataChapter');
+    const ataChapterNaEl = document.getElementById('ataChapterNa');
+    if (ataChapterNaEl) ataChapterNaEl.checked = false;
+    if (ataChapterEl) {
+        ataChapterEl.disabled = false;
+        ataChapterEl.style.opacity = '1';
+        ataChapterEl.required = true;
+    }
+
+    // Reset and show/hide Assigned Team N/A state
+    const assignedTeamNaGroup = document.getElementById('assignedTeamNaGroup');
+    const assignedTeamNaEl = document.getElementById('assignedTeamNa');
+    const assignedTeamTrigger = document.getElementById('assignedTeamTrigger');
+    const assignedTeamContainer = document.getElementById('assignedTeamContainer');
+    if (assignedTeamNaEl) assignedTeamNaEl.checked = false;
+    if (assignedTeamTrigger) assignedTeamTrigger.disabled = false;
+    if (assignedTeamContainer) assignedTeamContainer.style.opacity = '1';
+    if (assignedTeamNaGroup) {
+        assignedTeamNaGroup.style.display = isExternalRequest ? 'inline-flex' : 'none';
+    }
+
     // Default values
     const rtsDateEl = document.getElementById('rtsDate');
     const rtsDateNaEl = document.getElementById('rtsDateNa');
@@ -2234,11 +2420,97 @@ function openEditTaskModal(id) {
         Edit Maintenance Task
     `;
 
+    // Restore status dropdown visibility for edit mode
+    const statusGroup = document.getElementById('currentStatus')?.closest('.form-group');
+    if (statusGroup) {
+        statusGroup.style.display = '';
+    }
+
+    // Hide Assigned Team N/A checkbox for internal edit mode
+    const assignedTeamNaGroup = document.getElementById('assignedTeamNaGroup');
+    const assignedTeamTrigger = document.getElementById('assignedTeamTrigger');
+    const assignedTeamContainer = document.getElementById('assignedTeamContainer');
+    const assignedTeamNaEl = document.getElementById('assignedTeamNa');
+    if (assignedTeamNaGroup) {
+        assignedTeamNaGroup.style.display = 'none';
+    }
+    if (assignedTeamTrigger) assignedTeamTrigger.disabled = false;
+    if (assignedTeamContainer) assignedTeamContainer.style.opacity = '1';
+    if (assignedTeamNaEl) assignedTeamNaEl.checked = false;
+
     document.getElementById('taskId').value = task.id;
     document.getElementById('taskTopic').value = task.topic || '';
-    document.getElementById('aircraftReg').value = task.aircraftReg;
-    document.getElementById('aircraftType').value = task.aircraftType || '';
-    document.getElementById('ataChapter').value = task.ataChapter || '';
+
+    // Load Aircraft Registration N/A state
+    const editAircraftRegEl = document.getElementById('aircraftReg');
+    const editAircraftRegNaEl = document.getElementById('aircraftRegNa');
+    if (task.aircraftReg === 'N/A' || !task.aircraftReg) {
+        if (editAircraftRegNaEl) editAircraftRegNaEl.checked = true;
+        if (editAircraftRegEl) {
+            editAircraftRegEl.value = '';
+            editAircraftRegEl.disabled = true;
+            editAircraftRegEl.style.opacity = '0.5';
+            editAircraftRegEl.required = false;
+        }
+    } else {
+        if (editAircraftRegNaEl) editAircraftRegNaEl.checked = false;
+        if (editAircraftRegEl) {
+            editAircraftRegEl.value = task.aircraftReg;
+            editAircraftRegEl.disabled = false;
+            editAircraftRegEl.style.opacity = '1';
+            editAircraftRegEl.required = true;
+        }
+    }
+
+    // Load Aircraft Type N/A state
+    const editAircraftTypeTrigger = document.getElementById('aircraftTypeTrigger');
+    const editAircraftTypeContainer = document.getElementById('aircraftTypeContainer');
+    const editAircraftTypeNaEl = document.getElementById('aircraftTypeNa');
+    const editAircraftTypeHidden = document.getElementById('aircraftType');
+    const editAircraftTypeText = document.getElementById('aircraftTypeText');
+    const editAircraftTypeDropdown = document.getElementById('aircraftTypeDropdown');
+    if (task.aircraftType === 'N/A' || !task.aircraftType) {
+        if (editAircraftTypeNaEl) editAircraftTypeNaEl.checked = true;
+        if (editAircraftTypeTrigger) editAircraftTypeTrigger.disabled = true;
+        if (editAircraftTypeContainer) editAircraftTypeContainer.style.opacity = '0.5';
+        if (editAircraftTypeHidden) editAircraftTypeHidden.value = 'N/A';
+        if (editAircraftTypeText) editAircraftTypeText.textContent = 'N/A';
+        // Uncheck options
+        if (editAircraftTypeDropdown) {
+            editAircraftTypeDropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            const othersInputContainer = editAircraftTypeDropdown.querySelector('.others-input-container');
+            const othersInput = editAircraftTypeDropdown.querySelector('.others-input');
+            if (othersInputContainer) othersInputContainer.style.display = 'none';
+            if (othersInput) othersInput.value = '';
+        }
+    } else {
+        if (editAircraftTypeNaEl) editAircraftTypeNaEl.checked = false;
+        if (editAircraftTypeTrigger) editAircraftTypeTrigger.disabled = false;
+        if (editAircraftTypeContainer) editAircraftTypeContainer.style.opacity = '1';
+        if (editAircraftTypeHidden) editAircraftTypeHidden.value = task.aircraftType;
+        setAircraftTypes('aircraftTypeDropdown', 'aircraftType', 'aircraftTypeText', 'Select aircraft type...', task.aircraftType || '');
+    }
+
+    // Load ATA Chapter N/A state
+    const editAtaChapterEl = document.getElementById('ataChapter');
+    const editAtaChapterNaEl = document.getElementById('ataChapterNa');
+    if (task.ataChapter === 'N/A' || !task.ataChapter) {
+        if (editAtaChapterNaEl) editAtaChapterNaEl.checked = true;
+        if (editAtaChapterEl) {
+            editAtaChapterEl.value = '';
+            editAtaChapterEl.disabled = true;
+            editAtaChapterEl.style.opacity = '0.5';
+            editAtaChapterEl.required = false;
+        }
+    } else {
+        if (editAtaChapterNaEl) editAtaChapterNaEl.checked = false;
+        if (editAtaChapterEl) {
+            editAtaChapterEl.value = task.ataChapter;
+            editAtaChapterEl.disabled = false;
+            editAtaChapterEl.style.opacity = '1';
+            editAtaChapterEl.required = true;
+        }
+    }
     
     // Load RTS Date
     const editRtsDateEl = document.getElementById('rtsDate');
@@ -2261,7 +2533,6 @@ function openEditTaskModal(id) {
 
     // Populate multiselect for assigned team
     setAssignedTeams('assignedTeamDropdown', 'assignedTeam', 'assignedTeamText', 'Select assigned team...', task.assignedTeam || '');
-    setAircraftTypes('aircraftTypeDropdown', 'aircraftType', 'aircraftTypeText', 'Select aircraft type...', task.aircraftType || '');
     document.getElementById('requestor').value = task.requestor;
     
     // Load Requestor Contact
@@ -2706,19 +2977,102 @@ function escapeHTMLApp(str) {
         .replace(/'/g, '&#039;');
 }
 
+function saveTaskWithUploads(taskToSave, wasExternal) {
+    const pendingAttachments = (taskToSave.attachments || []).filter(att => att.isPendingUpload);
+
+    if (pendingAttachments.length === 0) {
+        // No pending uploads, save immediately
+        saveTaskData(taskToSave);
+        closeModal('taskModal');
+        renderApp();
+        if (wasExternal) {
+            alert('Request submitted successfully! Maintenance Control will review your request.');
+        }
+        return;
+    }
+
+    // Show loading spinner/message
+    showLoadingIndicator(true, `Uploading ${pendingAttachments.length} file(s) to OneDrive...`);
+
+    // We will upload each pending attachment
+    const uploadPromises = pendingAttachments.map(att => {
+        return new Promise((resolve) => {
+            handleCloudOrLocalUpload(
+                att.fileObj,
+                att.data,
+                (uploadedUrl) => {
+                    // Success: update attachment data and clean up temp props
+                    att.data = uploadedUrl;
+                    delete att.isPendingUpload;
+                    delete att.fileObj;
+                    resolve();
+                },
+                () => {
+                    // Fallback to local storage (keep base64) and clean up temp props
+                    delete att.isPendingUpload;
+                    delete att.fileObj;
+                    resolve();
+                },
+                taskToSave.assignedTeam || '',
+                taskToSave.createdDate || '',
+                taskToSave.aircraftReg || 'N-A',
+                taskToSave.topic || taskToSave.taskDescription || 'General'
+            );
+        });
+    });
+
+    Promise.all(uploadPromises)
+        .then(() => {
+            showLoadingIndicator(false);
+            // Save the task containing the newly uploaded OneDrive links
+            saveTaskData(taskToSave);
+            closeModal('taskModal');
+            renderApp();
+            if (wasExternal) {
+                alert('Request submitted successfully! Maintenance Control will review your request.');
+            }
+        })
+        .catch(err => {
+            console.error("Error uploading attachments:", err);
+            showLoadingIndicator(false);
+            // Save with whatever we have in case of failure
+            pendingAttachments.forEach(att => {
+                delete att.isPendingUpload;
+                delete att.fileObj;
+            });
+            saveTaskData(taskToSave);
+            closeModal('taskModal');
+            renderApp();
+            if (wasExternal) {
+                alert('Request submitted successfully! Maintenance Control will review your request.');
+            }
+        });
+}
+
 // Form Submission (Create or Edit Task)
 function handleFormSubmit(e) {
     e.preventDefault();
 
     const id = document.getElementById('taskId').value;
-    const aircraftReg = document.getElementById('aircraftReg').value.trim().toUpperCase();
-    const aircraftType = document.getElementById('aircraftType').value;
-    const ataChapter = document.getElementById('ataChapter').value.trim();
+    const aircraftRegNa = document.getElementById('aircraftRegNa').checked;
+    const aircraftRegVal = document.getElementById('aircraftReg').value.trim().toUpperCase();
+    const aircraftReg = aircraftRegNa ? 'N/A' : (aircraftRegVal || 'N/A');
+
+    const aircraftTypeNa = document.getElementById('aircraftTypeNa').checked;
+    const aircraftTypeVal = document.getElementById('aircraftType').value;
+    const aircraftType = aircraftTypeNa ? 'N/A' : (aircraftTypeVal || 'N/A');
+
+    const ataChapterNa = document.getElementById('ataChapterNa').checked;
+    const ataChapterVal = document.getElementById('ataChapter').value.trim();
+    const ataChapter = ataChapterNa ? 'N/A' : (ataChapterVal || 'N/A');
+
     const rtsDateNa = document.getElementById('rtsDateNa').checked;
     const rtsDateVal = document.getElementById('rtsDate').value;
     const rtsDate = rtsDateNa ? 'N/A' : (rtsDateVal || 'N/A');
 
-    const assignedTeam = document.getElementById('assignedTeam').value;
+    const assignedTeamNa = document.getElementById('assignedTeamNa').checked;
+    const assignedTeamVal = document.getElementById('assignedTeam').value;
+    const assignedTeam = assignedTeamNa ? 'N/A' : assignedTeamVal;
     const requestor = document.getElementById('requestor').value.trim();
 
     const requestorContactNa = document.getElementById('requestorContactNa').checked;
@@ -2730,12 +3084,17 @@ function handleFormSubmit(e) {
     const topic = document.getElementById('taskTopic').value.trim() || 'General';
 
     // Validations
-    if (!aircraftReg || !aircraftType || !ataChapter || !rtsDate || !assignedTeam || !requestor || !requestorContact || !taskDescription || !topic) {
+    const isTeamRequired = !isExternalRequest;
+    if (!aircraftReg || !aircraftType || !ataChapter || !rtsDate || (isTeamRequired && !assignedTeam) || !requestor || !requestorContact || !taskDescription || !topic) {
         alert('Please fill out all required fields.');
         return;
     }
 
+    const finalAssignedTeam = assignedTeam || 'Unassigned';
+
     let taskToSave = null;
+    const wasExternal = isExternalRequest;
+
     if (id) {
         // Edit Mode
         const taskIndex = tasks.findIndex(t => t.id === id);
@@ -2764,7 +3123,7 @@ function handleFormSubmit(e) {
                 aircraftType,
                 ataChapter,
                 rtsDate,
-                assignedTeam,
+                assignedTeam: finalAssignedTeam,
                 requestor,
                 requestorContact,
                 priorityLevel,
@@ -2772,6 +3131,9 @@ function handleFormSubmit(e) {
                 taskDescription,
                 attachments: [...formAttachments]
             };
+            if (!isExternalRequest) {
+                tasks[taskIndex].isExternal = false;
+            }
             taskToSave = tasks[taskIndex];
         }
     } else {
@@ -2784,7 +3146,7 @@ function handleFormSubmit(e) {
             ataChapter,
             createdDate: new Date().toISOString().split('T')[0],
             rtsDate,
-            assignedTeam,
+            assignedTeam: finalAssignedTeam,
             requestor,
             requestorContact,
             priorityLevel,
@@ -2792,13 +3154,14 @@ function handleFormSubmit(e) {
             taskDescription,
             attachments: [...formAttachments]
         };
+        if (isExternalRequest) {
+            newTask.isExternal = true;
+        }
         tasks.push(newTask);
         taskToSave = newTask;
     }
 
-    saveTaskData(taskToSave);
-    closeModal('taskModal');
-    renderApp();
+    saveTaskWithUploads(taskToSave, wasExternal);
 }
 
 // Delete task from details modal
@@ -3047,23 +3410,15 @@ function processFiles(fileList) {
 
         const reader = new FileReader();
         reader.onload = function(e) {
-            handleCloudOrLocalUpload(file, e.target.result, (url) => {
-                formAttachments.push({
-                    name: file.name,
-                    size: file.size,
-                    type: file.type,
-                    data: url
-                });
-                renderFilePreviews();
-            }, () => {
-                formAttachments.push({
-                    name: file.name,
-                    size: file.size,
-                    type: file.type,
-                    data: e.target.result // Base64 data URL
-                });
-                renderFilePreviews();
-            }, assignedTeam, dateStr, aircraftReg, topic);
+            formAttachments.push({
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                data: e.target.result, // Base64 data URL
+                isPendingUpload: true,
+                fileObj: file
+            });
+            renderFilePreviews();
         };
         reader.readAsDataURL(file);
     });
@@ -4142,7 +4497,7 @@ function renderWeeklySummaryTab() {
     }
 
     // Link all tasks from the board to the weekly report
-    const weeklyTasks = tasks;
+    const weeklyTasks = tasks.filter(t => !isExternalTask(t));
 
     // Retrieve the selected teams (if any)
     const teamHidden = document.getElementById('summaryTeamHidden');
@@ -5399,6 +5754,11 @@ function requestDeleteOneDriveFile(fileName, teamName, dateStr, aircraftReg, top
         teamNameSanitized = teamName.trim();
     }
 
+    let weekFolder = '';
+    if (dateStr && dateStr !== 'skip') {
+        weekFolder = getFrontendWeekFolderName(dateStr);
+    }
+
     fetch(powerAutomateDeleteUrl.trim(), {
         method: 'POST',
         headers: {
@@ -5409,6 +5769,7 @@ function requestDeleteOneDriveFile(fileName, teamName, dateStr, aircraftReg, top
             fileName: fileName,
             team: teamNameSanitized,
             date: (dateStr === 'skip' ? '' : (dateStr || '')),
+            weekFolder: weekFolder,
             aircraftReg: aircraftReg || 'N-A',
             topic: topic || 'General',
             isFyi: isFyi
@@ -6058,6 +6419,7 @@ function renderCalendarCell(day, month, year, dateStr, isOtherMonth) {
         // Filter tasks scheduled for this RTS date
         const cellTasks = (tasks || []).filter(t => {
             if (!t || !t.rtsDate) return false;
+            if (isExternalTask(t)) return false;
             
             let rtsDateStr = '';
             if (t.rtsDate instanceof Date) {
@@ -6169,6 +6531,145 @@ function handleCalendarCellClick(dateStr) {
 // Expose functions globally
 window.renderCalendarTab = renderCalendarTab;
 window.handleCalendarCellClick = handleCalendarCellClick;
+window.openExternalRequestModal = openExternalRequestModal;
+
+// ---- EXTERNAL REQUESTS TAB ----
+function renderRequestsTab() {
+    const container = document.getElementById('requestsContent');
+    const countEl = document.getElementById('requestsCount');
+    if (!container) return;
+
+    // Filter tasks where isExternal is true or 'true'
+    let pendingRequests = tasks.filter(t => isExternalTask(t));
+
+    // Filter by team if selector is present
+    const teamFilterEl = document.getElementById('requestsTeamFilter');
+    const selectedTeam = teamFilterEl ? teamFilterEl.value : 'All';
+    if (selectedTeam !== 'All') {
+        if (selectedTeam === 'Unassigned') {
+            pendingRequests = pendingRequests.filter(t => {
+                const team = (t.assignedTeam || '').trim();
+                return !team || team === 'Unassigned' || team === 'N/A';
+            });
+        } else {
+            pendingRequests = pendingRequests.filter(t => {
+                const teams = (t.assignedTeam || '').split(',').map(s => s.trim());
+                return teams.includes(selectedTeam);
+            });
+        }
+    }
+
+    if (countEl) countEl.textContent = pendingRequests.length;
+
+    if (pendingRequests.length === 0) {
+        const totalPendingCount = tasks.filter(t => isExternalTask(t)).length;
+        const msg = totalPendingCount > 0 
+            ? "No pending requests match the selected team filter."
+            : "Requests submitted by other departments via the login page will appear here for verification and team assignment.";
+        const title = totalPendingCount > 0
+            ? "No matching requests"
+            : "No pending external requests";
+
+        container.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:1rem;color:var(--text-muted);grid-column:1/-1;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;opacity:0.3;">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <p style="font-size:1rem;font-weight:600;">${title}</p>
+                <p style="font-size:0.85rem;text-align:center;max-width:340px;">${msg}</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = pendingRequests.map(task => {
+        const prioColors = { AOG: '#dc2626', High: '#ea580c', Medium: '#d97706', Low: '#16a34a', Routine: '#0284c7' };
+        const prioColor = prioColors[task.priorityLevel] || '#64748b';
+        const topic = task.topic || 'General Maintenance';
+        
+        // Handle attachments summary
+        const attachCount = task.attachments ? task.attachments.length : 0;
+        
+        return `
+        <div class="task-card" style="border-left:3.5px solid var(--team-avionics); cursor: default; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.75rem;" id="request-card-${task.id}">
+            <div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.5rem;">
+                    <div style="display:flex;flex-direction:column;gap:0.25rem;min-width:0;">
+                        <span style="font-size:0.95rem;font-weight:700;color:var(--text-primary);">${topic}</span>
+                        <span style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);">${task.aircraftReg} (${task.aircraftType || 'N/A'}) &middot; ATA ${task.ataChapter || 'N/A'}</span>
+                    </div>
+                    <span style="font-size:0.7rem;font-weight:700;color:${prioColor};background:${prioColor}15;border:1px solid ${prioColor}30;padding:0.2rem 0.5rem;border-radius:4px;white-space:nowrap;text-transform:uppercase;">${task.priorityLevel}</span>
+                </div>
+                
+                <div style="font-size:0.82rem;color:var(--text-secondary);margin:0.5rem 0;line-height:1.4;background:var(--bg-card);padding:0.6rem;border-radius:6px;border:1px solid var(--border-color);white-space:pre-wrap;">${task.taskDescription}</div>
+                
+                <div style="display:flex;flex-direction:column;gap:0.35rem;font-size:0.78rem;color:var(--text-muted);border-top:1px solid var(--border-color);padding-top:0.65rem;margin-top:0.65rem;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <strong style="color:var(--text-secondary);">Requested By:</strong> ${task.requestor}
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <strong style="color:var(--text-secondary);">Contact:</strong> ${task.requestorContact || 'N/A'}
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <strong style="color:var(--text-secondary);">Created:</strong> ${task.createdDate || 'N/A'}
+                    </div>
+                    ${attachCount > 0 ? `
+                    <div style="display:flex;align-items:center;gap:6px;color:var(--team-avionics);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                        ${attachCount} Attachment(s)
+                    </div>` : ''}
+                </div>
+            </div>
+            
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;border-top:1px solid var(--border-color);padding-top:0.75rem;">
+                <button class="btn btn-primary" onclick="approveRequestDirect('${task.id}')" style="flex:1;font-size:0.78rem;padding:0.4rem 0.5rem;height:auto;min-height:auto;gap:4px;background:var(--team-avionics);color:#fff;" title="Move task to Open on Kanban board">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Move to Open
+                </button>
+                <button class="btn btn-secondary" onclick="editRequestDirect('${task.id}')" style="font-size:0.78rem;padding:0.4rem 0.5rem;height:auto;min-height:auto;gap:4px;" title="Edit details or assign team">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:12px;height:12px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    Assign &amp; Edit
+                </button>
+                <button class="btn btn-secondary" onclick="rejectRequestDirect('${task.id}')" style="font-size:0.78rem;padding:0.4rem 0.5rem;height:auto;min-height:auto;color:var(--priority-aog);border-color:rgba(220,38,38,0.2);" title="Reject and delete request">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    Reject
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function approveRequestDirect(id) {
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+        task.isExternal = false;
+        task.currentStatus = 'Open';
+        saveTaskData(task);
+        alert(`Request for ${task.aircraftReg} - ${task.topic} moved to Open column on Kanban board!`);
+        renderApp();
+        renderRequestsTab();
+    }
+}
+
+function rejectRequestDirect(id) {
+    const task = tasks.find(t => t.id === id);
+    if (task && confirm(`Are you sure you want to reject and permanently delete this request for ${task.aircraftReg}?`)) {
+        deleteOneDriveFilesForTask(task);
+        tasks = tasks.filter(t => t.id !== id);
+        deleteTaskData(id);
+        renderApp();
+        renderRequestsTab();
+    }
+}
+
+function editRequestDirect(id) {
+    isExternalRequest = false; // Enable editing as admin/internal task
+    openEditTaskModal(id);
+}
+
+window.renderRequestsTab = renderRequestsTab;
+window.approveRequestDirect = approveRequestDirect;
+window.rejectRequestDirect = rejectRequestDirect;
+window.editRequestDirect = editRequestDirect;
 
 
 </script>

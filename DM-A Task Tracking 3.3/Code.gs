@@ -95,7 +95,7 @@ function initSheet() {
   const tasksHeaders = [
     'id', 'aircraftReg', 'aircraftType', 'ataChapter', 'createdDate', 'rtsDate', 'assignedTeam', 
     'requestor', 'requestorContact', 'priorityLevel', 'taskDescription', 
-    'currentStatus', 'attachments', 'comments'
+    'currentStatus', 'attachments', 'comments', 'isExternal'
   ];
   let sheet = ss.getSheetByName('Tasks');
   let isNewTasks = false;
@@ -130,6 +130,15 @@ function initSheet() {
         // Insert it at column 4 (after aircraftType)
         sheet.insertColumnBefore(4);
         sheet.getRange(1, 4).setValue('ataChapter');
+      }
+      
+      // Check if 'isExternal' column exists in headers, if not add it
+      const updatedData = sheet.getDataRange().getValues();
+      if (updatedData.length > 0) {
+        const updatedHeaders = updatedData[0];
+        if (updatedHeaders.indexOf('isExternal') === -1) {
+          sheet.getRange(1, updatedHeaders.length + 1).setValue('isExternal');
+        }
       }
     }
   }
